@@ -1,0 +1,36 @@
+# -----------------------------------------------
+# File: Dockerfile.golang
+# Lokasi: root proyek
+# -----------------------------------------------
+# Stage 1: Build binary
+FROM golang:1.21-alpine AS builder
+
+WORKDIR /app
+
+# Salin file-file Go
+COPY go.mod go.sum ./
+COPY config.yml ./
+COPY cmd/ ./cmd/
+COPY nexusconfig/ ./nexusconfig/
+
+# Download dependensi
+RUN go mod tidy
+RUN go mod download
+
+# Build API Ingress
+RUN go build -o /api ./cmd/api
+
+# Build Worker
+RUN go build -o /worker ./cmd/worker
+
+# Stage 2: Final image (Sangat ringan)
+FROM alpine:latest
+
+WORKDIR /app
+
+# Salin file-file yang dibutuhkan dari builder
+COPY --from=builder /api /api
+COPY --from=builder /worker /worker
+COPY --from=builder /app/config.yml /app/config.yml
+
+# (Tidak ada entrypoint di sini, kita tentukan di docker-compose 'command')

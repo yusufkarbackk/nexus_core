@@ -1,0 +1,27 @@
+# -----------------------------------------------
+# File: config.yml
+# Lokasi: root proyek (di samping go.mod)
+# -----------------------------------------------
+server:
+  port: "8080" # Port untuk API Ingress Golang
+
+redis:
+  addr: "localhost:6381" # 'redis' adalah nama service di docker-compose
+  streamname: "nexus_stream"
+  consumergroup: "nexus_group"
+
+database:
+  # DSN (Data Source Name) untuk koneksi ke DB Utama Nexus
+  # Format: user:password@tcp(host:port)/dbname
+  # 'db' adalah nama service di docker-compose
+  nexus_db_dsn: "demo_user:demo_password@tcp(127.0.0.1:3309)/nexus_db"
+
+decryptor:
+  # Alamat server Laravel (PHP) Anda
+  api_url: "http://localhost:8000/api/internal/decrypt"
+  api_token: ""
+  # Token ini HARUS SAMA dengan INTERNAL_DECRYPT_TOKEN di .env Laravel
+# Peta koneksi ke Database Tujuan
+# Nama di sini (misal: "mysql_support") HARUS SAMA PERSIS
+# dengan yang Anda masukkan di Filament (`target_connection_name`)
+
