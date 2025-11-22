@@ -1,19 +1,17 @@
 package main
 
 import (
-	
 	"context"
 	"database/sql"
-	
-	
+
 	"github.com/go-redis/redis/v8"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
-	
+	_ "github.com/lib/pq"
 	"log"
 	"net/http"
 	"nexus/nexusconfig"
-	
+
 	"strings"
 	"sync"
 	"time"
@@ -37,6 +35,7 @@ const DECRYPT_CACHE_TTL = 1 * time.Hour // Simpan password plain text selama 1 j
 type FieldMapping struct {
 	SourceField string
 	TargetField string
+	DefaultValue sql.NullString
 }
 type IntegrationJob struct {
 	SubscriptionID  int
@@ -49,16 +48,20 @@ type IntegrationJob struct {
 
 func main() {
 	var err error
+
+	// 1. Muat .env
 	if err := godotenv.Load(); err != nil {
 		log.Fatal("KRITIS: Gagal memuat file .env. Pastikan .env ada di root.")
 	}
 	log.Println("File .env berhasil dimuat.")
 
+	// 2. Muat config
 	cfg, err = nexusconfig.LoadConfig()
 	if err != nil {
 		log.Fatalf("Gagal memuat config: %v", err)
 	}
 
+	// 3. Koneksi Redis
 	rdb = redis.NewClient(&redis.Options{
 		Addr: cfg.Redis.Addr,
 	})
@@ -66,6 +69,7 @@ func main() {
 		log.Fatalf("Gagal koneksi ke Redis: %v", err)
 	}
 
+	// 4. Koneksi Nexus DB
 	nexusDB, err = sql.Open("mysql", cfg.Database.NexusDBDSN)
 	if err != nil {
 		log.Fatalf("Gagal koneksi ke Nexus DB: %v", err)
@@ -78,32 +82,26 @@ func main() {
 	createConsumerGroup()
 	log.Println("Menunggu pesan di stream:", cfg.Redis.StreamName)
 
-	// --- LOOP UTAMA (DIUBAH) ---
-	// 'consumerName' unik per worker, misal dari hostname
 	consumerName := "go-worker-" + getHostname()
 
+	// --- LOOP UTAMA (Priority Queue) ---
 	for {
-		// 1. SELALU proses pesan yang tertunda (gagal) terlebih dahulu
-		// Kita menggunakan ID "0" untuk membaca Pending Entries List (PEL)
+		// 1. Proses pesan pending (Retry)
 		processedPending, err := processStreamMessages(consumerName, "0")
 		if err != nil {
 			log.Printf("ERROR saat memproses pesan tertunda: %v", err)
-			time.Sleep(5 * time.Second) // Beri jeda jika ada error
+			time.Sleep(5 * time.Second)
 		}
 
-		// 2. Jika tidak ada pesan tertunda, baru ambil pesan baru
-		// Kita menggunakan ID ">" untuk pesan baru
+		// 2. Jika pending kosong, proses pesan baru
 		if processedPending == 0 {
 			_, err := processStreamMessages(consumerName, ">")
 			if err != nil {
-				// Jika errornya bukan timeout, log
 				if err != redis.Nil {
 					log.Printf("ERROR saat memproses pesan baru: %v", err)
 				}
-				// Jika redis.Nil (timeout), itu normal, loop akan berulang
 			}
 		}
-		// Loop berlanjut, selalu cek pesan '0' dulu
 	}
 }
 
@@ -115,4 +113,3 @@ func createConsumerGroup() {
 	}
 	log.Println("Consumer Group siap.")
 }
-

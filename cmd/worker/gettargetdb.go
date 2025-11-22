@@ -26,6 +26,10 @@ func getTargetDB(driver string, dsnFormat string, encryptedPass string) (*sql.DB
 		return db, nil // Kembalikan koneksi yang ada
 	}
 
+	if driver == "pgsql" {
+		driver = "postgres"
+	}
+
 	// 4. Buat koneksi baru
 	db, err := sql.Open(driver, plainDSN)
 	if err != nil {

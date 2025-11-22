@@ -20,7 +20,7 @@ func executeJob(msgID string, job IntegrationJob, payloadData map[string]interfa
 		return errMessage
 	}
 
-	if err := insertData(targetDB, job.TargetTable, transformedData); err != nil {
+	if err := insertData(targetDB, job.Driver, job.TargetTable, transformedData); err != nil {
 		errMessage := fmt.Errorf("gagal INSERT ke '%s' (SubID %d): %v", job.TargetTable, job.SubscriptionID, err)
 		log.Printf("ERROR [%s]: %v", msgID, errMessage)
 		return errMessage

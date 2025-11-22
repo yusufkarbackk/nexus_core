@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	_ "github.com/lib/pq"
 	"log"
 )
 
@@ -64,6 +65,11 @@ func getFanOutJobs(apiKey string) ([]IntegrationJob, error) {
 
 			if job.Driver == "mysql" {
 				job.TargetDSNFormat = fmt.Sprintf("%s:%%s@tcp(%s:%s)/%s?parseTime=true",
+					user.String, host.String, port.String, dbName.String)
+			} else if job.Driver == "pgsql" || job.Driver == "postgres" || job.Driver == "postgresql" {
+				// Postgres: postgres://user:%s@host:port/dbname?sslmode=disable
+				// Perhatikan: Driver 'pq' mendukung format URL ini
+				job.TargetDSNFormat = fmt.Sprintf("postgres://%s:%%s@%s:%s/%s?sslmode=disable",
 					user.String, host.String, port.String, dbName.String)
 			} else {
 				log.Printf("WARN: Driver '%s' belum didukung", job.Driver)
